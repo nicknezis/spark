@@ -27,11 +27,11 @@ import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
-import com.esotericsoftware.kryo.{Kryo, KryoException, Serializer => KryoClassSerializer}
-import com.esotericsoftware.kryo.io.{Input => KryoInput, Output => KryoOutput}
-import com.esotericsoftware.kryo.io.{UnsafeInput => KryoUnsafeInput, UnsafeOutput => KryoUnsafeOutput}
-import com.esotericsoftware.kryo.pool.{KryoCallback, KryoFactory, KryoPool}
-import com.esotericsoftware.kryo.serializers.{JavaSerializer => KryoJavaSerializer}
+import com.esotericsoftware.kryo.kryo5.{Kryo, KryoException, Serializer => KryoClassSerializer}
+import com.esotericsoftware.kryo.kryo5.io.{Input => KryoInput, Output => KryoOutput}
+import com.esotericsoftware.kryo.kryo5.io.{UnsafeInput => KryoUnsafeInput, UnsafeOutput => KryoUnsafeOutput}
+import com.esotericsoftware.kryo.kryo5.pool.{KryoCallback, KryoFactory, KryoPool}
+import com.esotericsoftware.kryo.kryo5.serializers.{JavaSerializer => KryoJavaSerializer}
 import com.twitter.chill.{AllScalaRegistrar, EmptyScalaKryoInstantiator}
 import org.apache.avro.generic.{GenericData, GenericRecord}
 import org.roaringbitmap.RoaringBitmap
@@ -104,7 +104,7 @@ class KryoSerializer(conf: SparkConf)
   }
 
   private class PoolWrapper extends KryoPool {
-    private var pool: KryoPool = getPool
+    private var pool: Pool = getPool
 
     override def borrow(): Kryo = pool.borrow()
 
@@ -593,7 +593,7 @@ private[spark] class KryoOutputObjectOutputBridge(
  * Kryo deserializes this into an AbstractCollection, which unfortunately doesn't work.
  */
 private class JavaIterableWrapperSerializer
-  extends com.esotericsoftware.kryo.Serializer[java.lang.Iterable[_]] {
+  extends com.esotericsoftware.kryo.kryo5.serializers.Serializer[java.lang.Iterable[_]] {
 
   import JavaIterableWrapperSerializer._
 

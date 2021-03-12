@@ -23,8 +23,8 @@ import java.nio.charset.StandardCharsets
 
 import scala.collection.mutable
 
-import com.esotericsoftware.kryo.{Kryo, Serializer => KSerializer}
-import com.esotericsoftware.kryo.io.{Input => KryoInput, Output => KryoOutput}
+import com.esotericsoftware.kryo.kryo5.{Kryo, Serializer => KSerializer}
+import com.esotericsoftware.kryo.kryo5.io.{Input => KryoInput, Output => KryoOutput}
 import org.apache.avro.{Schema, SchemaNormalization}
 import org.apache.avro.generic.{GenericData, GenericRecord}
 import org.apache.avro.io._
