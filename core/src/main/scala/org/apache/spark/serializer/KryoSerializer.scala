@@ -29,9 +29,9 @@ import scala.util.control.NonFatal
 
 import com.esotericsoftware.kryo.kryo5.{Kryo, KryoException, Serializer => KryoClassSerializer}
 import com.esotericsoftware.kryo.kryo5.io.{Input => KryoInput, Output => KryoOutput}
-import com.esotericsoftware.kryo.kryo5.io.{UnsafeInput => KryoUnsafeInput, UnsafeOutput => KryoUnsafeOutput}
-import com.esotericsoftware.kryo.kryo5.pool.{KryoCallback, KryoFactory, KryoPool}
+import com.esotericsoftware.kryo.kryo5.unsafe.{UnsafeInput => KryoUnsafeInput, UnsafeOutput => KryoUnsafeOutput}
 import com.esotericsoftware.kryo.kryo5.serializers.{JavaSerializer => KryoJavaSerializer}
+import com.esotericsoftware.kryo.kryo5.util.Pool
 import com.twitter.chill.{AllScalaRegistrar, EmptyScalaKryoInstantiator}
 import org.apache.avro.generic.{GenericData, GenericRecord}
 import org.roaringbitmap.RoaringBitmap
@@ -97,34 +97,11 @@ class KryoSerializer(conf: SparkConf)
     }
 
   @transient
-  private lazy val factory: KryoFactory = new KryoFactory() {
-    override def create: Kryo = {
-      newKryo()
-    }
+  private lazy val internalPool = new Pool[Kryo](true, true, 8) {
+    override def create(): Kryo = newKryo()
   }
 
-  private class PoolWrapper extends KryoPool {
-    private var pool: Pool = getPool
-
-    override def borrow(): Kryo = pool.borrow()
-
-    override def release(kryo: Kryo): Unit = pool.release(kryo)
-
-    override def run[T](kryoCallback: KryoCallback[T]): T = pool.run(kryoCallback)
-
-    def reset(): Unit = {
-      pool = getPool
-    }
-
-    private def getPool: KryoPool = {
-      new KryoPool.Builder(factory).softReferences.build
-    }
-  }
-
-  @transient
-  private lazy val internalPool = new PoolWrapper
-
-  def pool: KryoPool = internalPool
+  def pool: Pool[Kryo] = internalPool
 
   def newKryo(): Kryo = {
     val instantiator = new EmptyScalaKryoInstantiator
@@ -228,7 +205,7 @@ class KryoSerializer(conf: SparkConf)
 
   override def setDefaultClassLoader(classLoader: ClassLoader): Serializer = {
     super.setDefaultClassLoader(classLoader)
-    internalPool.reset()
+    internalPool.clear()
     this
   }
 
@@ -333,7 +310,7 @@ private[spark] class KryoSerializerInstance(
    */
   private[serializer] def borrowKryo(): Kryo = {
     if (usePool) {
-      val kryo = ks.pool.borrow()
+      val kryo = ks.pool.obtain()
       kryo.reset()
       kryo
     } else {
@@ -358,7 +335,7 @@ private[spark] class KryoSerializerInstance(
    */
   private[serializer] def releaseKryo(kryo: Kryo): Unit = {
     if (usePool) {
-      ks.pool.release(kryo)
+      ks.pool.free(kryo)
     } else {
       if (cachedKryo == null) {
         cachedKryo = kryo
@@ -371,7 +348,7 @@ private[spark] class KryoSerializerInstance(
   private lazy val input = if (useUnsafe) new KryoUnsafeInput() else new KryoInput()
 
   override def serialize[T: ClassTag](t: T): ByteBuffer = {
-    output.clear()
+    output.reset()
     val kryo = borrowKryo()
     try {
       kryo.writeClassAndObject(output, t)
@@ -479,7 +456,7 @@ private[serializer] object KryoSerializer {
       override def write(kryo: Kryo, output: KryoOutput, bitmap: RoaringBitmap): Unit = {
         bitmap.serialize(new KryoOutputObjectOutputBridge(kryo, output))
       }
-      override def read(kryo: Kryo, input: KryoInput, cls: Class[RoaringBitmap]): RoaringBitmap = {
+      override def read(kryo: Kryo, input: KryoInput, cls: Class[_ <: RoaringBitmap]): RoaringBitmap = {
         val ret = new RoaringBitmap
         ret.deserialize(new KryoInputObjectInputBridge(kryo, input))
         ret
@@ -593,7 +570,7 @@ private[spark] class KryoOutputObjectOutputBridge(
  * Kryo deserializes this into an AbstractCollection, which unfortunately doesn't work.
  */
 private class JavaIterableWrapperSerializer
-  extends com.esotericsoftware.kryo.kryo5.serializers.Serializer[java.lang.Iterable[_]] {
+  extends com.esotericsoftware.kryo.kryo5.Serializer[java.lang.Iterable[_]] {
 
   import JavaIterableWrapperSerializer._
 
@@ -607,7 +584,7 @@ private class JavaIterableWrapperSerializer
     }
   }
 
-  override def read(kryo: Kryo, in: KryoInput, clz: Class[java.lang.Iterable[_]])
+  override def read(kryo: Kryo, in: KryoInput, clz: Class[_ <: java.lang.Iterable[_]])
     : java.lang.Iterable[_] = {
     kryo.readClassAndObject(in) match {
       case scalaIterable: Iterable[_] => scalaIterable.asJava

@@ -158,6 +158,6 @@ private[serializer] class GenericAvroSerializer(schemas: Map[Long, String])
   override def write(kryo: Kryo, output: KryoOutput, datum: GenericRecord): Unit =
     serializeDatum(datum, output)
 
-  override def read(kryo: Kryo, input: KryoInput, datumClass: Class[GenericRecord]): GenericRecord =
+  override def read(kryo: Kryo, input: KryoInput, datumClass: Class[_ <: GenericRecord]): GenericRecord =
     deserializeDatum(input)
 }
