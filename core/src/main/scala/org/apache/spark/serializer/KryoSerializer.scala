@@ -29,8 +29,8 @@ import scala.util.control.NonFatal
 
 import com.esotericsoftware.kryo.kryo5.{Kryo, KryoException, Serializer => KryoClassSerializer}
 import com.esotericsoftware.kryo.kryo5.io.{Input => KryoInput, Output => KryoOutput}
-import com.esotericsoftware.kryo.kryo5.unsafe.{UnsafeInput => KryoUnsafeInput, UnsafeOutput => KryoUnsafeOutput}
 import com.esotericsoftware.kryo.kryo5.serializers.{JavaSerializer => KryoJavaSerializer}
+import com.esotericsoftware.kryo.kryo5.unsafe.{UnsafeInput => KryoUnsafeInput, UnsafeOutput => KryoUnsafeOutput}
 import com.esotericsoftware.kryo.kryo5.util.Pool
 import com.twitter.chill.{AllScalaRegistrar, EmptyScalaKryoInstantiator}
 import org.apache.avro.generic.{GenericData, GenericRecord}
